@@ -32,8 +32,8 @@ form { display: grid; gap: .65rem; background: var(--paper); border: 1px solid #
 .summary details [hidden] { display: none; }
 #summary-text { overflow-wrap: anywhere; white-space: pre-wrap; line-height: 1.55; }
 label { font-weight: 650; }
-input, textarea, button { font: inherit; }
-input, textarea { min-width: 0; width: 100%; padding: .7rem .8rem; color: var(--ink); caret-color: var(--accent); background: #fff; border: 1px solid var(--line); border-radius: .4rem; }
+input, textarea, select, button { font: inherit; }
+input, textarea, select { min-width: 0; width: 100%; padding: .7rem .8rem; color: var(--ink); caret-color: var(--accent); background: #fff; border: 1px solid var(--line); border-radius: .4rem; }
 input { margin-bottom: .55rem; }
 textarea { line-height: 1.55; resize: vertical; min-height: 9rem; }
 textarea::placeholder { color: var(--muted); }

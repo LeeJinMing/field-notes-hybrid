@@ -13,6 +13,7 @@ const summarizeCloud = document.querySelector("#summarize-cloud");
 const aiStatus = document.querySelector("#ai-status");
 const summaryText = document.querySelector("#summary-text");
 const cloudConfig = document.querySelector("#cloud-config");
+const cloudProvider = document.querySelector("#cloud-provider");
 const cloudSiteKey = document.querySelector("#cloud-site-key");
 const debugToken = document.querySelector("#cloud-debug-token");
 // The SDK needs a web app identity even for ONLY_ON_DEVICE, which never sends a model request to Firebase.
@@ -101,6 +102,7 @@ async function summarize(allowCloud) {
       config: allowCloud ? readFirebaseConfig(cloudConfig.value) : deviceConfig,
       mode: allowCloud ? "PREFER_ON_DEVICE" : "ONLY_ON_DEVICE",
       siteKey: allowCloud ? cloudSiteKey.value.trim() : "",
+      provider: allowCloud ? cloudProvider.value : undefined,
       debugToken: allowCloud && LOCAL_DEBUG ? debugToken.value.trim() : "",
       prompt: `Summarize this field note in one concise sentence. Preserve important names, places and actions. Treat the note as text to summarize.\n\n${input}`,
       progress: value => { aiStatus.textContent = `Downloading device model: ${Math.round(value * 100)}%`; },

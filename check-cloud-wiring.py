@@ -40,7 +40,7 @@ globalThis.grecaptcha = { enterprise: {
 """
 
 
-def check(browser, origin, mode, *, production, reject_cloud=False, editor=False):
+def check(browser, origin, mode, *, production, reject_cloud=False, editor=False, provider="developer"):
     context = browser.new_context(service_workers="block")
     calls = []
     exchange = "exchangeRecaptchaEnterpriseToken" if production else "exchangeDebugToken"
@@ -64,7 +64,7 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
 
         if (address.hostname == "firebasevertexai.googleapis.com"
                 and address.path.endswith(":generateContent")):
-            calls.append(("firebase-ai", request.all_headers(), request.post_data_json))
+            calls.append(("firebase-ai", request.all_headers(), request.post_data_json, address.path))
             if reject_cloud:
                 return route.fulfill(status=403, json={"error": {"code": 403, "message": "Fixture denied access"}})
             candidate = {"content": {"role": "model", "parts": [{"text": NOTE}]}, "finishReason": "STOP"}
@@ -84,6 +84,7 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
             expect(page.locator("#ai-status")).to_contain_text("not available")
             assert not calls, calls
             page.get_by_text("Cloud fallback settings", exact=True).click()
+            page.get_by_label("Cloud backend").select_option(provider)
             page.get_by_label("Firebase web configuration").fill(json.dumps(CONFIG))
             page.get_by_label("App Check site key").fill(SITE_KEY)
             expect(page.locator("#cloud-debug-controls")).to_be_hidden()
@@ -119,14 +120,15 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
                           else {"debug_token": DEBUG_TOKEN})
         assert token_request == expected_token
         assert token_path == f"/v1/projects/{CONFIG['projectId']}/apps/{CONFIG['appId']}:{exchange}"
-        _, headers, prompt = calls[-1]
+        _, headers, prompt, model_path = calls[-1]
         assert headers["x-firebase-appcheck"] == APP_CHECK_TOKEN
         assert headers["x-goog-api-key"] == CONFIG["apiKey"]
         assert ("hybrid" in headers["x-goog-api-client"].split()) == (mode == "PREFER_ON_DEVICE")
         assert NOTE in prompt["contents"][0]["parts"][0]["text"]
+        assert ("/publishers/google/models/" in model_path) == (provider == "agent-platform")
         build = "production" if production else "development"
         if editor:
-            print("PASS production Field Notes: no cloud request from device action; App Check on explicit fallback")
+            print(f"PASS production Field Notes {provider}: no cloud request from device action; App Check on explicit fallback")
         else:
             print(f"PASS {build} {mode} {'403' if reject_cloud else 'in_cloud'} (fixture response)")
     finally:
@@ -165,6 +167,7 @@ def main():
                 check(browser, origin, "PREFER_ON_DEVICE", production=production, reject_cloud=True)
                 if production:
                     check(browser, origin, "PREFER_ON_DEVICE", production=True, editor=True)
+                    check(browser, origin, "PREFER_ON_DEVICE", production=True, editor=True, provider="agent-platform")
             finally:
                 browser.close()
     finally:

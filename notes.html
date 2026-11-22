@@ -40,6 +40,11 @@
       <details>
         <summary>Cloud fallback settings</summary>
         <p>If the device model is unavailable, the fallback button may send the current note to Firebase AI Logic.</p>
+        <label for="cloud-provider">Cloud backend</label>
+        <select id="cloud-provider">
+          <option value="developer">Gemini Developer API</option>
+          <option value="agent-platform">Agent Platform Gemini API</option>
+        </select>
         <label for="cloud-config">Firebase web configuration</label>
         <textarea id="cloud-config" rows="4" spellcheck="false" autocomplete="off"></textarea>
         <label for="cloud-site-key">App Check site key</label>
