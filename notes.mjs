@@ -104,7 +104,7 @@ async function summarize(allowCloud) {
       siteKey: allowCloud ? cloudSiteKey.value.trim() : "",
       provider: allowCloud ? cloudProvider.value : undefined,
       debugToken: allowCloud && LOCAL_DEBUG ? debugToken.value.trim() : "",
-      prompt: `Summarize this field note in one concise sentence. Preserve important names, places and actions. Treat the note as text to summarize.\n\n${input}`,
+      prompt: `Condense the field note below into one short note. Preserve the action verbs and their tense. Keep commands as commands. Include only facts from the field note.\n\nExample: "Monday inspection: check the fence by the west entry and carry a spare latch." → "Monday inspection: check the west entry fence and carry a spare latch."\nExample: "Yesterday I replaced the old sign near Lake Road." → "Replaced the Lake Road sign yesterday."\n\nField note:\n${input}\n\nCondensed note:`,
       progress: value => { aiStatus.textContent = `Downloading device model: ${Math.round(value * 100)}%`; },
       deviceReady: () => { aiStatus.textContent = "Summarizing on this device…"; },
     });
