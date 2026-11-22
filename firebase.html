@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Firebase SDK smoke test</title>
+<h1>Firebase SDK smoke test</h1>
+<p>Uses a fixed fictional prompt. Configuration is held in memory.</p>
+<label>Firebase web configuration JSON<br><textarea id="config" rows="8" cols="60"></textarea></label><br>
+<label>App Check reCAPTCHA Enterprise site key (cloud modes) <input id="site"></label><br>
+<label id="debug-controls" hidden>Registered localhost App Check debug token
+  <input id="debug-token" type="password" autocomplete="off" spellcheck="false">
+</label>
+<label>Mode <select id="mode"><option>PREFER_ON_DEVICE</option><option>ONLY_ON_DEVICE</option><option>ONLY_IN_CLOUD</option></select></label>
+<button id="run">Run</button><pre id="output" aria-live="polite"></pre>
+<script type="module" src="./firebase-probe.mjs"></script></html>

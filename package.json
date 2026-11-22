@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "firebase": "^13.4.0"
+  },
+  "devDependencies": {
+    "vite": "7.3.8"
+  },
+  "scripts": {
+    "build": "vite build --base ./",
+    "dev": "vite --host 127.0.0.1"
+  }
+}

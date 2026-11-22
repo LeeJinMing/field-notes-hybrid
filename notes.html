@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Field Notes</title>
+  <link rel="stylesheet" href="./notes.css">
+  <script type="module" src="./notes.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="bar-content">
+      <strong>Field Notes</strong>
+      <p id="connection"></p>
+    </div>
+  </header>
+  <main>
+    <div class="intro">
+      <h1>Notebook</h1>
+      <p>Keep a working note on this device, even when you lose your connection.</p>
+    </div>
+    <form id="note" aria-label="Working note">
+      <label for="title">Title</label>
+      <input id="title" maxlength="120" disabled>
+      <label for="body">Note</label>
+      <textarea id="body" rows="10" maxlength="20000" placeholder="Write an observation, a detail to remember, or what to do next." disabled></textarea>
+      <div class="actions">
+        <button id="save" type="submit" disabled>Save note</button>
+        <button id="reload" type="button" hidden>Load saved note</button>
+        <p id="status" role="status">Opening notebook…</p>
+      </div>
+    </form>
+    <section class="summary" aria-labelledby="summary-title">
+      <h2 id="summary-title">Summarize note</h2>
+      <div class="actions">
+        <button id="summarize-device" type="button">Summarize on this device</button>
+        <p id="ai-status" role="status"></p>
+      </div>
+      <p id="summary-text" hidden></p>
+      <details>
+        <summary>Cloud fallback settings</summary>
+        <p>If the device model is unavailable, the fallback button may send the current note to Firebase AI Logic.</p>
+        <label for="cloud-config">Firebase web configuration</label>
+        <textarea id="cloud-config" rows="4" spellcheck="false" autocomplete="off"></textarea>
+        <label for="cloud-site-key">App Check site key</label>
+        <input id="cloud-site-key" spellcheck="false" autocomplete="off">
+        <label id="cloud-debug-controls" for="cloud-debug-token" hidden>
+          App Check debug token
+          <input id="cloud-debug-token" type="password" spellcheck="false" autocomplete="off">
+        </label>
+        <button id="summarize-cloud" type="button">Summarize with cloud fallback</button>
+      </details>
+    </section>
+  </main>
+</body>
+</html>
