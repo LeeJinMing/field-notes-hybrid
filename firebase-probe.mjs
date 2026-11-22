@@ -13,6 +13,7 @@ button.addEventListener("click", async () => {
     const { source, text } = await infer({
       config: readFirebaseConfig(field("config").value),
       mode: field("mode").value,
+      provider: field("provider").value,
       siteKey: field("site").value.trim(),
       debugToken: LOCAL_DEBUG ? field("debug-token").value.trim() : "",
       prompt: "Summarize this fictional note in one sentence: Move Tuesday rehearsal to Room B and bring the printed score.",

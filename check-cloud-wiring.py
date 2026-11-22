@@ -105,6 +105,7 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
             else:
                 debug_field.fill(DEBUG_TOKEN)
             page.locator("#mode").select_option(mode)
+            page.get_by_label("Cloud backend").select_option(provider)
             page.get_by_role("button", name="Run", exact=True).click()
             if reject_cloud:
                 expect(output).to_contain_text("Fixture denied access")
@@ -130,7 +131,7 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
         if editor:
             print(f"PASS production Field Notes {provider}: no cloud request from device action; App Check on explicit fallback")
         else:
-            print(f"PASS {build} {mode} {'403' if reject_cloud else 'in_cloud'} (fixture response)")
+            print(f"PASS {build} {provider} {mode} {'403' if reject_cloud else 'in_cloud'} (fixture response)")
     finally:
         context.close()
 
@@ -163,6 +164,7 @@ def main():
             browser = playwright.chromium.launch(channel="chrome", args=["--disable-features=AIPromptAPI"])
             try:
                 check(browser, origin, "ONLY_IN_CLOUD", production=production)
+                check(browser, origin, "ONLY_IN_CLOUD", production=production, provider="agent-platform")
                 check(browser, origin, "PREFER_ON_DEVICE", production=production)
                 check(browser, origin, "PREFER_ON_DEVICE", production=production, reject_cloud=True)
                 if production:

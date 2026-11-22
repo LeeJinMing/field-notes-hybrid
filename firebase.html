@@ -1,6 +1,12 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><title>Firebase SDK smoke test</title>
 <h1>Firebase SDK smoke test</h1>
 <p>Uses a fixed fictional prompt. Configuration is held in memory.</p>
+<label>Cloud backend
+  <select id="provider">
+    <option value="developer">Gemini Developer API</option>
+    <option value="agent-platform">Agent Platform Gemini API</option>
+  </select>
+</label><br>
 <label>Firebase web configuration JSON<br><textarea id="config" rows="8" cols="60"></textarea></label><br>
 <label>App Check reCAPTCHA Enterprise site key (cloud modes) <input id="site"></label><br>
 <label id="debug-controls" hidden>Registered localhost App Check debug token
