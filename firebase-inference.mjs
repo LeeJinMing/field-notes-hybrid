@@ -4,7 +4,7 @@ import { AgentPlatformBackend, getAI, getGenerativeModel, GoogleAIBackend, Infer
 
 export const LOCAL_DEBUG = import.meta.env.DEV && ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
 let cloudConfig;
-let cloudAI;
+let cloudApp;
 
 export function readFirebaseConfig(value) {
   const config = JSON.parse(value);
@@ -14,21 +14,20 @@ export function readFirebaseConfig(value) {
   return config;
 }
 
-async function getAttestedAI(config, siteKey, debugToken, provider) {
+async function getAttestedApp(config, siteKey, debugToken) {
   if (!siteKey) throw new Error("Provide the App Check site key for cloud inference.");
   if (LOCAL_DEBUG && !debugToken) throw new Error("Provide an App Check debug token registered for this web app.");
-  const identity = JSON.stringify([config, siteKey, LOCAL_DEBUG ? debugToken : "", provider]);
-  if (cloudAI && cloudConfig !== identity) throw new Error("Reload to change projects or attestation settings.");
-  if (cloudAI) return cloudAI;
+  const identity = JSON.stringify([config, siteKey, LOCAL_DEBUG ? debugToken : ""]);
+  if (cloudApp && cloudConfig !== identity) throw new Error("Reload to change projects or App Check settings.");
+  if (cloudApp) return cloudApp;
 
   const app = initializeApp(config);
   try {
     if (LOCAL_DEBUG) globalThis.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
     initializeAppCheck(app, { provider: new ReCaptchaEnterpriseProvider(siteKey), isTokenAutoRefreshEnabled: true });
-    const backend = provider === "agent-platform" ? new AgentPlatformBackend() : new GoogleAIBackend();
-    cloudAI = getAI(app, { backend });
+    cloudApp = app;
     cloudConfig = identity;
-    return cloudAI;
+    return app;
   } catch (error) {
     await deleteApp(app);
     throw error;
@@ -42,9 +41,12 @@ export async function infer({ config, mode, prompt, siteKey = "", debugToken = "
   if (inferenceMode === InferenceMode.ONLY_ON_DEVICE && !globalThis.LanguageModel) {
     throw new Error("On-device summarization is not available in this browser.");
   }
-  const ai = inferenceMode === InferenceMode.ONLY_ON_DEVICE
-    ? getAI(initializeApp(config, "local-device"), { backend: new GoogleAIBackend() })
-    : await getAttestedAI(config, siteKey, debugToken, provider);
+  const onDevice = inferenceMode === InferenceMode.ONLY_ON_DEVICE;
+  const app = onDevice
+    ? initializeApp(config, "local-device")
+    : await getAttestedApp(config, siteKey, debugToken);
+  const backend = !onDevice && provider === "agent-platform" ? new AgentPlatformBackend() : new GoogleAIBackend();
+  const ai = getAI(app, { backend });
   const model = getGenerativeModel(ai, { mode: inferenceMode });
   if (inferenceMode === InferenceMode.ONLY_ON_DEVICE) {
     await model.initializeDeviceModel(progress);

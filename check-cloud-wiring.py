@@ -127,6 +127,24 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
         assert ("hybrid" in headers["x-goog-api-client"].split()) == (mode == "PREFER_ON_DEVICE")
         assert NOTE in prompt["contents"][0]["parts"][0]["text"]
         assert ("/publishers/google/models/" in model_path) == (provider == "agent-platform")
+        if editor and provider == "agent-platform":
+            page.get_by_label("Cloud backend").select_option("developer")
+            page.get_by_role("button", name="Summarize with cloud fallback").click()
+            expect(page.locator("#summary-text")).to_have_text(NOTE)
+            assert [entry[0] for entry in calls] == [*expected_calls, "firebase-ai"], calls
+            assert "/publishers/google/models/" not in calls[-1][-1]
+            assert calls[-1][1]["x-firebase-appcheck"] == APP_CHECK_TOKEN
+            assert "Edited after summarization." in calls[-1][2]["contents"][0]["parts"][0]["text"]
+            page.get_by_label("App Check site key").fill("different-site-key")
+            page.get_by_role("button", name="Summarize with cloud fallback").click()
+            expect(page.locator("#ai-status")).to_contain_text("Reload to change projects or App Check settings")
+            expect(note).to_have_value("Edited after summarization.")
+            assert [entry[0] for entry in calls] == [*expected_calls, "firebase-ai"], calls
+            page.get_by_role("button", name="Save note", exact=True).click()
+            expect(page.locator("#status")).to_have_text("Saved on this device.")
+            page.reload()
+            expect(note).to_have_value("Edited after summarization.")
+            assert [entry[0] for entry in calls] == [*expected_calls, "firebase-ai"], calls
         build = "production" if production else "development"
         if editor:
             print(f"PASS production Field Notes {provider}: no cloud request from device action; App Check on explicit fallback")
