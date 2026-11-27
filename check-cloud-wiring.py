@@ -20,6 +20,7 @@ APP_CHECK_TOKEN = "fixture-app-check-token"
 SITE_KEY = "fixture-site-key"
 ENTERPRISE_TOKEN = "fixture-enterprise-token"
 NOTE = "Move Tuesday rehearsal to Room B and bring the printed score."
+SAMPLE_NOTE = "Thursday survey moved to Willow Pier. Bring a blue notebook and count water markers 4 through 8."
 RECAPTCHA_FIXTURE = """
 let widget;
 globalThis.grecaptcha = { enterprise: {
@@ -40,15 +41,19 @@ globalThis.grecaptcha = { enterprise: {
 """
 
 
-def check(browser, origin, mode, *, production, reject_cloud=False, editor=False, provider="developer"):
+def check(browser, origin, mode, *, production, reject_cloud=False, editor=False, provider="developer", sample=False):
     context = browser.new_context(service_workers="block")
     calls = []
     exchange = "exchangeRecaptchaEnterpriseToken" if production else "exchangeDebugToken"
+    expected_summary = SAMPLE_NOTE if sample else NOTE
 
     def route_request(route):
         request = route.request
         address = urlsplit(request.url)
         if f"{address.scheme}://{address.netloc}" == origin:
+            if sample and address.path == "/reviewer-config.json":
+                calls.append(("reviewer-config",))
+                return route.fulfill(json={"config": CONFIG, "siteKey": SITE_KEY, "provider": provider})
             return route.continue_()
 
         if production and address.hostname == "www.google.com" and address.path == "/recaptcha/enterprise.js":
@@ -67,7 +72,7 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
             calls.append(("firebase-ai", request.all_headers(), request.post_data_json, address.path))
             if reject_cloud:
                 return route.fulfill(status=403, json={"error": {"code": 403, "message": "Fixture denied access"}})
-            candidate = {"content": {"role": "model", "parts": [{"text": NOTE}]}, "finishReason": "STOP"}
+            candidate = {"content": {"role": "model", "parts": [{"text": expected_summary}]}, "finishReason": "STOP"}
             return route.fulfill(json={"candidates": [candidate]})
 
         return route.abort()
@@ -83,14 +88,21 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
             page.get_by_role("button", name="Summarize on this device").click()
             expect(page.locator("#ai-status")).to_contain_text("not available")
             assert not calls, calls
-            page.get_by_text("Cloud fallback settings", exact=True).click()
-            page.get_by_label("Cloud backend").select_option(provider)
-            page.get_by_label("Firebase web configuration").fill(json.dumps(CONFIG))
-            page.get_by_label("App Check site key").fill(SITE_KEY)
-            expect(page.locator("#cloud-debug-controls")).to_be_hidden()
-            page.get_by_role("button", name="Summarize with cloud fallback").click()
+            if sample:
+                page.get_by_role("button", name="Summarize sample with cloud fallback").click()
+                expect(note).to_have_value(NOTE)
+            else:
+                page.get_by_text("Cloud fallback settings", exact=True).click()
+                page.get_by_label("Cloud backend").select_option(provider)
+                page.get_by_label("Firebase web configuration").fill(json.dumps(CONFIG))
+                page.get_by_label("App Check site key").fill(SITE_KEY)
+                expect(page.locator("#cloud-debug-controls")).to_be_hidden()
+                page.get_by_role("button", name="Summarize with cloud fallback").click()
             expect(page.locator("#ai-status")).to_have_text("Summarized by Firebase AI Logic in the cloud.")
-            expect(page.locator("#summary-text")).to_have_text(NOTE)
+            expect(page.locator("#summary-text")).to_have_text(expected_summary)
+            if sample:
+                page.get_by_role("button", name="Summarize sample with cloud fallback").click()
+                expect(page.locator("#ai-status")).to_contain_text("before trying the sample again")
             note.fill("Edited after summarization.")
             expect(page.locator("#summary-text")).to_be_hidden()
         else:
@@ -115,6 +127,8 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
         expected_calls = ["app-check", "firebase-ai"]
         if production:
             expected_calls.insert(0, "recaptcha-enterprise")
+        if sample:
+            expected_calls.insert(0, "reviewer-config")
         assert [entry[0] for entry in calls] == expected_calls, calls
         _, token_request, token_path = calls[-2]
         expected_token = ({"recaptcha_enterprise_token": ENTERPRISE_TOKEN} if production
@@ -125,9 +139,14 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
         assert headers["x-firebase-appcheck"] == APP_CHECK_TOKEN
         assert headers["x-goog-api-key"] == CONFIG["apiKey"]
         assert ("hybrid" in headers["x-goog-api-client"].split()) == (mode == "PREFER_ON_DEVICE")
-        assert NOTE in prompt["contents"][0]["parts"][0]["text"]
+        prompt_text = prompt["contents"][0]["parts"][0]["text"]
+        assert (SAMPLE_NOTE if sample else NOTE) in prompt_text
+        if sample:
+            assert NOTE not in prompt_text
+            assert model_path.endswith("/gemini-3.5-flash-lite:generateContent")
+            assert prompt["generationConfig"]["maxOutputTokens"] == 160
         assert ("/publishers/google/models/" in model_path) == (provider == "agent-platform")
-        if editor and provider == "agent-platform":
+        if editor and not sample and provider == "agent-platform":
             page.get_by_label("Cloud backend").select_option("developer")
             page.get_by_role("button", name="Summarize with cloud fallback").click()
             expect(page.locator("#summary-text")).to_have_text(NOTE)
@@ -157,7 +176,9 @@ def check(browser, origin, mode, *, production, reject_cloud=False, editor=False
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--production", action="store_true", help="Serve the production bundle after npm run build")
-    production = parser.parse_args().production
+    parser.add_argument("--hosted-review", action="store_true", help="Test a production build with VITE_FIELD_NOTES_HOSTED_REVIEW=true")
+    args = parser.parse_args()
+    production = args.production or args.hosted_review
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
@@ -188,6 +209,9 @@ def main():
                 if production:
                     check(browser, origin, "PREFER_ON_DEVICE", production=True, editor=True)
                     check(browser, origin, "PREFER_ON_DEVICE", production=True, editor=True, provider="agent-platform")
+                if args.hosted_review:
+                    check(browser, origin, "PREFER_ON_DEVICE", production=True, editor=True, sample=True)
+                    check(browser, origin, "PREFER_ON_DEVICE", production=True, editor=True, provider="agent-platform", sample=True)
             finally:
                 browser.close()
     finally:

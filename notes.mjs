@@ -10,12 +10,18 @@ const status = document.querySelector("#status");
 const connection = document.querySelector("#connection");
 const summarizeDevice = document.querySelector("#summarize-device");
 const summarizeCloud = document.querySelector("#summarize-cloud");
+const summarizeSample = document.querySelector("#summarize-sample");
+const reviewerCloud = document.querySelector("#reviewer-cloud");
 const aiStatus = document.querySelector("#ai-status");
 const summaryText = document.querySelector("#summary-text");
 const cloudConfig = document.querySelector("#cloud-config");
 const cloudProvider = document.querySelector("#cloud-provider");
 const cloudSiteKey = document.querySelector("#cloud-site-key");
 const debugToken = document.querySelector("#cloud-debug-token");
+const reviewerNote = reviewerCloud.querySelector("blockquote").textContent.trim();
+const reviewerCloudParams = { model: "gemini-3.5-flash-lite", generationConfig: { maxOutputTokens: 160 } };
+const reviewerRetryKey = "field-notes-reviewer-retry-at";
+const reviewerCooldownMs = 30_000;
 // The SDK needs a web app identity even for ONLY_ON_DEVICE, which never sends a model request to Firebase.
 const deviceConfig = { apiKey: "device-only-placeholder", appId: "1:100:web:fieldnotes", projectId: "field-notes-local" };
 let database;
@@ -23,7 +29,9 @@ let revision;
 let busy = true;
 let dirty = false;
 let summarizing = false;
+let reviewerRetryAt = 0;
 if (LOCAL_DEBUG) document.querySelector("#cloud-debug-controls").hidden = false;
+reviewerCloud.hidden = import.meta.env.VITE_FIELD_NOTES_HOSTED_REVIEW !== "true";
 
 function openNotebook() {
   return new Promise((resolve, reject) => {
@@ -87,28 +95,66 @@ function clearSummary() {
   if (!summarizing) aiStatus.textContent = "";
 }
 
-async function summarize(allowCloud) {
+async function summarize(allowCloud, useSample = false) {
   if (summarizing) return;
-  const input = body.value.trim();
+  if (useSample) {
+    const now = Date.now();
+    try {
+      reviewerRetryAt = Math.max(reviewerRetryAt, Number(localStorage.getItem(reviewerRetryKey)) || 0);
+    } catch {
+      // The in-page cooldown also works when storage is unavailable.
+    }
+    if (reviewerRetryAt > now) {
+      aiStatus.textContent = `Please wait ${Math.ceil((reviewerRetryAt - now) / 1000)} seconds before trying the sample again.`;
+      return;
+    }
+    if (!navigator.onLine) {
+      aiStatus.textContent = "Connect to the internet to try the hosted sample.";
+      return;
+    }
+    reviewerRetryAt = now + reviewerCooldownMs;
+    try { localStorage.setItem(reviewerRetryKey, String(reviewerRetryAt)); } catch { /* In-page cooldown remains active. */ }
+  }
+  const input = useSample ? reviewerNote : body.value.trim();
   clearSummary();
   if (!input) {
     aiStatus.textContent = "Write a note to summarize.";
     return;
   }
-  summarizeDevice.disabled = summarizeCloud.disabled = summarizing = true;
+  summarizeDevice.disabled = summarizeCloud.disabled = summarizeSample.disabled = summarizing = true;
   aiStatus.textContent = "Preparing summary…";
   try {
+    let config = deviceConfig;
+    let siteKey = "";
+    let provider;
+    if (useSample) {
+      const url = new URL("./reviewer-config.json", location.href);
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error("The hosted sample is temporarily unavailable.");
+      const settings = await response.json();
+      config = readFirebaseConfig(JSON.stringify(settings.config));
+      siteKey = settings.siteKey?.trim();
+      provider = settings.provider;
+      if (!siteKey || !["developer", "agent-platform"].includes(provider)) {
+        throw new Error("The hosted sample is temporarily unavailable.");
+      }
+    } else if (allowCloud) {
+      config = readFirebaseConfig(cloudConfig.value);
+      siteKey = cloudSiteKey.value.trim();
+      provider = cloudProvider.value;
+    }
     const { source, text } = await infer({
-      config: allowCloud ? readFirebaseConfig(cloudConfig.value) : deviceConfig,
+      config,
       mode: allowCloud ? "PREFER_ON_DEVICE" : "ONLY_ON_DEVICE",
-      siteKey: allowCloud ? cloudSiteKey.value.trim() : "",
-      provider: allowCloud ? cloudProvider.value : undefined,
-      debugToken: allowCloud && LOCAL_DEBUG ? debugToken.value.trim() : "",
+      siteKey,
+      provider,
+      inCloudParams: useSample ? reviewerCloudParams : undefined,
+      debugToken: allowCloud && !useSample && LOCAL_DEBUG ? debugToken.value.trim() : "",
       prompt: `Condense the field note below into one short note. Preserve the action verbs and their tense. Keep commands as commands. Include only facts from the field note.\n\nExample: "Monday inspection: check the fence by the west entry and carry a spare latch." → "Monday inspection: check the west entry fence and carry a spare latch."\nExample: "Yesterday I replaced the old sign near Lake Road." → "Replaced the Lake Road sign yesterday."\n\nField note:\n${input}\n\nCondensed note:`,
       progress: value => { aiStatus.textContent = `Downloading device model: ${Math.round(value * 100)}%`; },
       deviceReady: () => { aiStatus.textContent = "Summarizing on this device…"; },
     });
-    if (body.value.trim() !== input) {
+    if (!useSample && body.value.trim() !== input) {
       aiStatus.textContent = "The note changed. Summarize again to use the latest text.";
       return;
     }
@@ -118,14 +164,17 @@ async function summarize(allowCloud) {
       : source === "in_cloud" ? "Summarized by Firebase AI Logic in the cloud."
       : "Summary ready. The SDK did not report the inference source.";
   } catch (error) {
-    aiStatus.textContent = error instanceof SyntaxError ? "Enter valid Firebase configuration JSON." : error.message;
+    aiStatus.textContent = error instanceof SyntaxError
+      ? useSample ? "The hosted sample is temporarily unavailable." : "Enter valid Firebase configuration JSON."
+      : error.message;
   } finally {
-    summarizeDevice.disabled = summarizeCloud.disabled = summarizing = false;
+    summarizeDevice.disabled = summarizeCloud.disabled = summarizeSample.disabled = summarizing = false;
   }
 }
 
 summarizeDevice.addEventListener("click", () => { void summarize(false); });
 summarizeCloud.addEventListener("click", () => { void summarize(true); });
+summarizeSample.addEventListener("click", () => { void summarize(true, true); });
 
 addEventListener("online", refreshConnection);
 addEventListener("offline", refreshConnection);

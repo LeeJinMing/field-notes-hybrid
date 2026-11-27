@@ -37,6 +37,11 @@
         <p id="ai-status" role="status"></p>
       </div>
       <p id="summary-text" hidden></p>
+      <div id="reviewer-cloud" hidden>
+        <p>Try the hybrid route with a fictional note. If the device model is unavailable, Firebase AI Logic will receive only the sample below.</p>
+        <blockquote>Thursday survey moved to Willow Pier. Bring a blue notebook and count water markers 4 through 8.</blockquote>
+        <button id="summarize-sample" type="button">Summarize sample with cloud fallback</button>
+      </div>
       <details>
         <summary>Cloud fallback settings</summary>
         <p>If the device model is unavailable, the fallback button may send the current note to Firebase AI Logic.</p>

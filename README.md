@@ -22,6 +22,12 @@ For **ONLY_ON_DEVICE**, use supported Chrome after the device model finishes dow
 
 The production build caches the app and preflight pages and their build assets after the first online visit. Wait for the service worker to activate before testing a full offline reload. Firebase requests and the form's runtime configuration are outside the cache. After a reload, re-enter Firebase configuration to use the cloud actions. **ONLY_ON_DEVICE** uses a separate Firebase app without starting App Check. The cloud-capable modes still require App Check.
 
+### Hosted reviewer sample
+
+The Pages workflow can publish a one-click hybrid sample when `FIELD_NOTES_REVIEW_CONFIG` is configured. The button sends a fixed fictional note if cloud inference is needed. The working draft stays in the editor. Configure the workflow input as JSON with `config` (the restricted Firebase Web SDK client configuration), `siteKey` (the public reCAPTCHA Enterprise site key), and `provider` (`developer` or `agent-platform`). Pages serves this JSON publicly as `reviewer-config.json`, so include only public client values. Keep Gemini API keys, service account credentials, and App Check debug tokens out of it. Enforce App Check for AI Logic in the authorized project and only enable the hosted sample if the cloud provider covers the intended evaluation period and audience.
+
+Set `VITE_FIELD_NOTES_HOSTED_REVIEW=true` before building to test the sample locally. Run `python check-cloud-wiring.py --hosted-review` to verify the sample with both synthetic providers and confirm the request does not contain the working note.
+
 To check the device side of **PREFER_ON_DEVICE**, confirm that `LanguageModel.availability()` is `available`. After the service worker takes control, put the browser offline, stop the loopback server, and reopen `/firebase.html` from the cached app shell. Run both **PREFER_ON_DEVICE** and **ONLY_ON_DEVICE** with the fictional note. For this offline-only test, fixture values for the Firebase configuration and site key suffice. Verify `on_device`, the note's room detail, and the absence of a cloud model request. A live fallback test requires a real project, App Check, and a browser without the model.
 
 When testing the native model with browser automation, preserve Chrome component updates, background networking, and the Optimization Hints feature. An automation launch can disable these by default. Inspect the command line in the isolated test profile before treating `unavailable` as a device result.

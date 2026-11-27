@@ -20,7 +20,17 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
-      - run: npm run build
+      - name: Build site
+        env:
+          FIELD_NOTES_REVIEW_CONFIG: ${{ secrets.FIELD_NOTES_REVIEW_CONFIG }}
+        run: |
+          if [[ -n "$FIELD_NOTES_REVIEW_CONFIG" ]]; then
+            export VITE_FIELD_NOTES_HOSTED_REVIEW=true
+          fi
+          npm run build
+          if [[ "$VITE_FIELD_NOTES_HOSTED_REVIEW" == true ]]; then
+            printf '%s\n' "$FIELD_NOTES_REVIEW_CONFIG" > dist/reviewer-config.json
+          fi
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist

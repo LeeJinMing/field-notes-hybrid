@@ -34,7 +34,7 @@ async function getAttestedApp(config, siteKey, debugToken) {
   }
 }
 
-export async function infer({ config, mode, prompt, siteKey = "", debugToken = "", provider = "developer", progress, deviceReady }) {
+export async function infer({ config, mode, prompt, siteKey = "", debugToken = "", provider = "developer", inCloudParams, progress, deviceReady }) {
   const inferenceMode = InferenceMode[mode];
   if (!inferenceMode) throw new Error("Choose a supported inference mode.");
   // Without the Prompt API, the SDK lacks a device adapter and can choose its cloud path.
@@ -47,7 +47,7 @@ export async function infer({ config, mode, prompt, siteKey = "", debugToken = "
     : await getAttestedApp(config, siteKey, debugToken);
   const backend = !onDevice && provider === "agent-platform" ? new AgentPlatformBackend() : new GoogleAIBackend();
   const ai = getAI(app, { backend });
-  const model = getGenerativeModel(ai, { mode: inferenceMode });
+  const model = getGenerativeModel(ai, { mode: inferenceMode, inCloudParams });
   if (inferenceMode === InferenceMode.ONLY_ON_DEVICE) {
     await model.initializeDeviceModel(progress);
     deviceReady?.();
